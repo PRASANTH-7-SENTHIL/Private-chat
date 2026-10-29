@@ -4,7 +4,7 @@ services:
   # ==========================================================
   - type: web
     name: private-chat-backend
-    env: python
+    runtime: python
     region: oregon
     plan: free
     rootDir: backend
@@ -25,13 +25,14 @@ services:
   # ==========================================================
   # 2. React Vite Frontend (Static site with CDN & SPA rewrite)
   # ==========================================================
-  - type: staticSite
+  - type: web
     name: private-chat-frontend
+    runtime: static
     region: oregon
     plan: free
     rootDir: frontend
     buildCommand: npm install && npm run build
-    publishPath: dist
+    staticPublishPath: ./dist
     routes:
       - type: rewrite
         source: /*
