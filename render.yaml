@@ -1,0 +1,32 @@
+services:
+  # ==========================================================
+  # 1. Total Application Web Service (FastAPI + WebSockets + React SPA)
+  # ==========================================================
+  - type: web
+    name: private-chat-app
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build && cd ../backend && pip install -r requirements.txt
+    startCommand: cd backend && alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: private-chat-db
+          property: connectionString
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_ORIGINS
+        value: "*"
+      - key: ENVIRONMENT
+        value: production
+
+databases:
+  # ==========================================================
+  # 2. Managed PostgreSQL Database
+  # ==========================================================
+  - name: private-chat-db
+    databaseName: privatechat
+    user: postgres
+    region: oregon
+    plan: free
