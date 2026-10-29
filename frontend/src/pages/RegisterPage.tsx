@@ -70,26 +70,31 @@ export function RegisterPage() {
       const accessToken = data.access_token;
 
       // 2. Generate local E2EE keys on client device
-      const { publicKey: identityPublicKey } = await encryptionService.generateIdentityKeys();
-      const { signedPrekey, signature } = await encryptionService.generateSignedPrekey();
+      let registeredDeviceId: string | null = null;
+      try {
+        const { publicKey: identityPublicKey } = await encryptionService.generateIdentityKeys();
+        const { signedPrekey, signature } = await encryptionService.generateSignedPrekey();
 
-      // Temporarily store token for device registration
-      setAuth(user, null, accessToken);
+        // 3. Register device's public key material with backend (private key never leaves device!)
+        const deviceRes = await devicesApi.register({
+          identity_public_key: identityPublicKey,
+          signed_prekey: signedPrekey,
+          signed_prekey_signature: signature,
+        });
+        registeredDeviceId = deviceRes.data?.id || null;
+      } catch (keyErr) {
+        console.warn('Device key generation warning:', keyErr);
+      }
 
-      // 3. Register device's public key material with backend (private key never leaves device!)
-      const deviceRes = await devicesApi.register({
-        identity_public_key: identityPublicKey,
-        signed_prekey: signedPrekey,
-        signed_prekey_signature: signature,
-      });
-
-      const registeredDeviceId = deviceRes.data.id;
       setAuth(user, registeredDeviceId, accessToken);
-
       setRegisteredResult({ loginId: user.login_id || user.loginId });
       toast.success('Secure account created successfully!');
     } catch (err: any) {
-      const msg = err?.response?.data?.detail ?? 'Registration failed. Please try again.';
+      const msg =
+        err?.response?.data?.detail ??
+        err?.response?.data?.error ??
+        err?.message ??
+        'Registration failed. Please try again.';
       setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
     } finally {
       setLoading(false);

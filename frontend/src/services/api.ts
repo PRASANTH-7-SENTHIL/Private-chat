@@ -23,7 +23,14 @@ api.interceptors.response.use(
   (res) => res,
   async (error: AxiosError) => {
     const original = error.config as (typeof error.config) & { _retry?: boolean };
-    if (error.response?.status === 401 && !original?._retry) {
+    const url = original?.url || '';
+    const isAuthRoute =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/logout');
+
+    if (error.response?.status === 401 && !original?._retry && !isAuthRoute) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           queue.push({

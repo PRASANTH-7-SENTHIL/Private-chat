@@ -51,9 +51,13 @@ app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 app.add_middleware(SlowAPIMiddleware)
 
 # CORS configuration
+# Using allow_origin_regex allows any http/https origin while correctly setting the
+# explicit requesting origin in the response header alongside credentials (allow_credentials=True).
+# This strictly complies with browser CORS rules (which forbid Access-Control-Allow-Origin: * with credentials: true).
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.origins_list if settings.origins_list != ["*"] else ["*"],
+    allow_origins=[o for o in settings.origins_list if o != "*"],
+    allow_origin_regex=r"^https?://.*",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -80,9 +84,15 @@ async def websocket_endpoint(
     in-band initial auth message, or token query param for dev/tests.
     """
     origin = websocket.headers.get("origin", "")
-    if settings.environment == "production" and origin and settings.origins_list != ["*"] and origin not in settings.origins_list:
-        await websocket.close(code=4003)
-        return
+    if settings.environment == "production" and origin and settings.origins_list != ["*"]:
+        is_allowed = (
+            origin in settings.origins_list
+            or ".onrender.com" in origin
+            or ".vercel.app" in origin
+        )
+        if not is_allowed:
+            await websocket.close(code=4003)
+            return
 
     user_id = None
     device_id = ""

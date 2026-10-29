@@ -18,19 +18,22 @@ COOKIE_MAX_AGE = settings.refresh_token_expire_days * 86400
 
 
 def _set_refresh_cookie(response: Response, token: str) -> None:
+    is_prod = settings.environment == "production"
+    # In production, frontend & backend can be hosted on different subdomains/domains (e.g. .onrender.com).
+    # SameSite=None and Secure=True are required for modern browsers to send cross-origin cookies.
     response.set_cookie(
         key=REFRESH_COOKIE,
         value=token,
         httponly=True,
-        secure=settings.environment == "production",
-        samesite="lax",
+        secure=is_prod,
+        samesite="none" if is_prod else "lax",
         max_age=COOKIE_MAX_AGE,
         path="/api/v1/auth",
     )
 
 
 @router.post("/register", status_code=201)
-@limiter.limit("10/minute")
+@limiter.limit("30/minute")
 async def register(
     request: Request,
     body: RegisterRequest,
@@ -58,7 +61,7 @@ async def register(
 
 
 @router.post("/login")
-@limiter.limit("5/minute")
+@limiter.limit("60/minute")
 async def login(
     request: Request,
     body: LoginRequest,

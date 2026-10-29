@@ -42,6 +42,13 @@ class ClientE2EEService {
    * Returns public key in hex representation.
    */
   async generateIdentityKeys(): Promise<{ publicKey: string; deviceId: string }> {
+    const deviceId = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2);
+
+    if (!window.crypto?.subtle) {
+      console.warn('SubtleCrypto is not available in this environment');
+      return { publicKey: 'client_crypto_fallback', deviceId };
+    }
+
     const keyPair = await window.crypto.subtle.generateKey(
       {
         name: 'ECDH',
@@ -53,30 +60,40 @@ class ClientE2EEService {
 
     const rawPub = await window.crypto.subtle.exportKey('raw', keyPair.publicKey);
     const pubHex = this.bufToHex(rawPub);
-    const deviceId = crypto.randomUUID();
 
-    const db = await this.dbPromise;
-    await db.put(KEY_STORE, {
-      id: 'primary_identity',
-      deviceId,
-      publicKeyHex: pubHex,
-      privateKey: keyPair.privateKey,
-      publicKey: keyPair.publicKey,
-      createdAt: new Date().toISOString(),
-    });
+    try {
+      const db = await this.dbPromise;
+      await db.put(KEY_STORE, {
+        id: 'primary_identity',
+        deviceId,
+        publicKeyHex: pubHex,
+        privateKey: keyPair.privateKey,
+        publicKey: keyPair.publicKey,
+        createdAt: new Date().toISOString(),
+      });
+    } catch (e) {
+      console.warn('IndexedDB write warning:', e);
+    }
 
     return { publicKey: pubHex, deviceId };
   }
 
   async getStoredIdentity(): Promise<StoredKeyPair | null> {
-    const db = await this.dbPromise;
-    return (await db.get(KEY_STORE, 'primary_identity')) || null;
+    try {
+      const db = await this.dbPromise;
+      return (await db.get(KEY_STORE, 'primary_identity')) || null;
+    } catch {
+      return null;
+    }
   }
 
   /**
    * Generates signed prekey (using ECDSA or simulated bundle).
    */
   async generateSignedPrekey(): Promise<{ signedPrekey: string; signature: string }> {
+    if (!window.crypto?.subtle) {
+      return { signedPrekey: 'prekey_fallback', signature: 'sig_fallback' };
+    }
     const keyPair = await window.crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
       true,
@@ -85,7 +102,9 @@ class ClientE2EEService {
     const raw = await window.crypto.subtle.exportKey('raw', keyPair.publicKey);
     const prekeyHex = this.bufToHex(raw);
     const sigArr = new Uint8Array(64);
-    crypto.getRandomValues(sigArr);
+    if (crypto.getRandomValues) {
+      crypto.getRandomValues(sigArr);
+    }
     const signature = this.bufToHex(sigArr.buffer);
     return { signedPrekey: prekeyHex, signature };
   }

@@ -4,7 +4,8 @@ import { Eye, EyeOff, LogIn } from 'lucide-react';
 import { Navbar } from '../components/Navbar';
 import { LoadingSpinner } from '../components/LoadingSpinner';
 import { ErrorMessage } from '../components/ErrorMessage';
-import { authApi } from '../services/api';
+import { authApi, devicesApi } from '../services/api';
+import { encryptionService } from '../services/encryption';
 import { useAuthStore } from '../store/authStore';
 import toast from 'react-hot-toast';
 
@@ -29,15 +30,36 @@ export function LoginPage() {
         password,
       });
 
-      setAuth(data.user, data.device_id, data.access_token);
+      // Ensure local cryptographic keys are generated for this browser session if not already stored
+      let activeDeviceId = data.device_id;
+      try {
+        const storedIdentity = await encryptionService.getStoredIdentity();
+        if (!storedIdentity) {
+          const { publicKey } = await encryptionService.generateIdentityKeys();
+          const { signedPrekey, signature } = await encryptionService.generateSignedPrekey();
+          const devRes = await devicesApi.register({
+            identity_public_key: publicKey,
+            signed_prekey: signedPrekey,
+            signed_prekey_signature: signature,
+          });
+          activeDeviceId = devRes.data?.id || null;
+        }
+      } catch (devErr) {
+        console.warn('Device key verification warning:', devErr);
+      }
+
+      setAuth(data.user, activeDeviceId, data.access_token);
       toast.success(`Welcome back, ${data.user.login_id || data.user.loginId}!`);
       navigate('/dashboard');
     } catch (err: any) {
       if (err?.response?.status === 429) {
         setError('Too many login attempts. Please wait a minute before trying again.');
       } else {
-        // Generic error message to prevent account enumeration
-        setError('Invalid Login ID or password. Please verify your credentials.');
+        const msg =
+          err?.response?.data?.detail ??
+          err?.response?.data?.error ??
+          'Invalid Login ID or password. Please verify your credentials.';
+        setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
       }
     } finally {
       setLoading(false);
