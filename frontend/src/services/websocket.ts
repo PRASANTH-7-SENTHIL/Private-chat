@@ -27,10 +27,19 @@ class WebSocketService {
       const ticket = ticketRes.data.ticket;
 
       const wsBase = import.meta.env.VITE_WS_BASE_URL;
+      const apiBase = import.meta.env.VITE_API_BASE_URL;
       let url: string;
+
       if (wsBase) {
         const cleanBase = wsBase.replace(/\/$/, '');
         url = `${cleanBase}/ws?ticket=${encodeURIComponent(ticket)}`;
+      } else if (apiBase) {
+        // Automatically derive wss:// from https:// API base URL
+        const wsDerived = apiBase
+          .replace(/^http:/, 'ws:')
+          .replace(/^https:/, 'wss:')
+          .replace(/\/$/, '');
+        url = `${wsDerived}/ws?ticket=${encodeURIComponent(ticket)}`;
       } else {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
         const host = window.location.host;
