@@ -27,6 +27,6 @@ databases:
   # ==========================================================
   - name: private-chat-db
     databaseName: privatechat
-    user: postgres
+    user: privatechat_user
     region: oregon
     plan: free

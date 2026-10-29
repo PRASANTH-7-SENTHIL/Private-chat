@@ -4,7 +4,12 @@ from app.config import get_settings
 
 settings = get_settings()
 
-is_sqlite = "sqlite" in settings.database_url
+db_url = settings.database_url
+# Automatically adapt Render's standard postgresql:// to postgresql+asyncpg://
+if db_url.startswith("postgresql://"):
+    db_url = db_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+is_sqlite = "sqlite" in db_url
 
 engine_kwargs = {
     "echo": settings.environment == "development",
@@ -17,7 +22,7 @@ if not is_sqlite:
         "pool_pre_ping": True,
     })
 
-engine = create_async_engine(settings.database_url, **engine_kwargs)
+engine = create_async_engine(db_url, **engine_kwargs)
 
 AsyncSessionLocal = async_sessionmaker(
     bind=engine,
