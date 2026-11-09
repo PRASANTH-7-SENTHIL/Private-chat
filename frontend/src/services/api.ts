@@ -1,11 +1,31 @@
 import axios, { type AxiosError } from 'axios';
 import { useAuthStore } from '../store/authStore';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL || '').replace(/\/$/, '');
+export const getApiBaseUrl = (): string => {
+  if (import.meta.env.VITE_API_BASE_URL) {
+    return import.meta.env.VITE_API_BASE_URL.replace(/\/$/, '');
+  }
+  if (typeof window !== 'undefined') {
+    const custom = window.localStorage.getItem('CUSTOM_API_BASE_URL');
+    if (custom) return custom.replace(/\/$/, '');
+
+    // On Render: if frontend is on private-chat-frontend-xxxx.onrender.com,
+    // the backend is on private-chat-backend-xxxx.onrender.com
+    const host = window.location.hostname;
+    if (host.includes('.onrender.com') && host.includes('private-chat-frontend')) {
+      const backendHost = host.replace('private-chat-frontend', 'private-chat-backend');
+      return `https://${backendHost}`;
+    }
+  }
+  return '';
+};
+
+export const API_BASE = getApiBaseUrl();
 
 const api = axios.create({
   baseURL: `${API_BASE}/api/v1`,
   withCredentials: true,
+  timeout: 45000, // 45s timeout to allow Render free tier cold-start wake up
 });
 
 api.interceptors.request.use((config) => {

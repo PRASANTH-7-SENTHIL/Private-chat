@@ -1,5 +1,5 @@
 import type { WSMessage } from '../types';
-import { authApi } from './api';
+import { authApi, getApiBaseUrl } from './api';
 
 type EventHandler = (payload: Record<string, any>) => void;
 
@@ -27,7 +27,7 @@ class WebSocketService {
       const ticket = ticketRes.data.ticket;
 
       const wsBase = import.meta.env.VITE_WS_BASE_URL;
-      const apiBase = import.meta.env.VITE_API_BASE_URL;
+      const apiBase = getApiBaseUrl();
       let url: string;
 
       if (wsBase) {

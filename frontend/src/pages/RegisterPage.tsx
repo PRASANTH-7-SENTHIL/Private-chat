@@ -90,12 +90,21 @@ export function RegisterPage() {
       setRegisteredResult({ loginId: user.login_id || user.loginId });
       toast.success('Secure account created successfully!');
     } catch (err: any) {
-      const msg =
-        err?.response?.data?.detail ??
-        err?.response?.data?.error ??
-        err?.message ??
-        'Registration failed. Please try again.';
-      setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+      console.error('Registration failed:', err);
+      let msg = 'Registration failed. Please try again.';
+      if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+        msg = 'Connection timed out. The backend server on Render is waking up from free-tier sleep (takes ~45s). Please wait a few seconds and try again.';
+      } else if (!err?.response) {
+        msg = 'Cannot connect to the backend server. Please verify your internet connection or check your Render backend service status.';
+      } else if (err?.response?.data?.detail) {
+        msg = typeof err.response.data.detail === 'string'
+          ? err.response.data.detail
+          : JSON.stringify(err.response.data.detail);
+      } else if (err?.response?.data?.error) {
+        msg = err.response.data.error;
+      }
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }

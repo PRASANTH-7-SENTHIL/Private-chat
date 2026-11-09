@@ -54,6 +54,10 @@ export function LoginPage() {
     } catch (err: any) {
       if (err?.response?.status === 429) {
         setError('Too many login attempts. Please wait a minute before trying again.');
+      } else if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+        setError('Connection timed out. The backend server on Render is waking up from free-tier sleep (takes ~45s). Please wait a few seconds and try again.');
+      } else if (!err?.response) {
+        setError('Cannot connect to the backend server. Please check your backend service status on Render.');
       } else {
         const msg =
           err?.response?.data?.detail ??
